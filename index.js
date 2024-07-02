@@ -42,13 +42,27 @@ async function run() {
         // Products related api
         // getting info about Products (find)
         app.get('/products', async (req, res) => {
-            const page = parseInt(req.query.page);
-            const size = parseInt(req.query.size);
-            const result = await productCollection.find()
+            const page = parseInt(req.query.page) || 0;
+            const size = parseInt(req.query.size) || 10;
+            const brand = req.query.brand || '';
+
+            let query = {};
+            if (brand) {
+                query = { brand: { $regex: new RegExp(brand, 'i') } }; // Case insensitive
+            }
+            console.log(`Received Brand: ${brand}`); // Log received brand for debugging
+            console.log(`Query: ${JSON.stringify(query)}`); // Log query for debugging
+
+            const totalProducts = await productCollection.countDocuments(query);
+            const result = await productCollection.find(query)
                 .skip(page * size)
                 .limit(size)
                 .toArray();
-            res.send(result);
+            res.send({
+                result,
+                totalProducts,
+                totalPages: Math.ceil(totalProducts / size),
+            });
         })
         // to see specific id
         app.get('/products/:id', async (req, res) => {
@@ -179,7 +193,7 @@ async function run() {
         // get product from cart
         app.get('carts', async (req, res) => {
             const email = req.query.email;
-            const query = {email: email};
+            const query = { email: email };
             const result = cartCollection.find(query).toArray();
             res.send(result);
 
